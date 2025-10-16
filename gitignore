@@ -1,0 +1,58 @@
+# ==============================
+# Go Build / Environment Files
+# ==============================
+bin/
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Go vendor folder
+vendor/
+
+# Go modules cache
+pkg/mod/
+
+# ==============================
+# Environment & Credentials
+# ==============================
+.env
+.env.*
+!*.example
+
+# Azure connection logs
+*.log
+*.bak
+
+# ==============================
+# OS / Editor specific
+# ==============================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.tmp
+
+# ==============================
+# SQL / Data Dumps
+# ==============================
+*.sql~
+*.sql.bak
+*.sql.tmp
+*.csv
+*.xlsx
+*.json
+
+# ==============================
+# Project output

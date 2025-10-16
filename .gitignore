@@ -1,0 +1,52 @@
+# ---------------------------------------------------
+# Go (Lenguaje de Programación)
+# ---------------------------------------------------
+# Binarios compilados
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.obj
+# Directorios de compilación/caché
+/bin/
+/pkg/
+/dist/
+# Archivos de caché de Go
+.cache
+go-build.*
+
+# ---------------------------------------------------
+# Entornos Virtuales de Python (Miniconda / venv)
+# ---------------------------------------------------
+# Ignorar el entorno virtual de Python/Miniconda completo
+# Comúnmente el directorio 'env' o 'venv' o 'conda'
+env/
+venv/
+.venv/
+conda/
+.conda/
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyd
+*.whl
+
+# ---------------------------------------------------
+# IDE: PyCharm
+# ---------------------------------------------------
+# Directorio de configuración de PyCharm (contiene configuraciones de proyecto específicas del usuario)
+.idea/
+# Archivos de historial local
+.history
+
+# ---------------------------------------------------
+# Configuración Local y Seguridad
+# ---------------------------------------------------
+# Archivo de variables de entorno (¡CRÍTICO para credenciales!)
+.env
+# Archivos de log
+*.log
+# Datos generados/temporales
+/data/
+/temp/
