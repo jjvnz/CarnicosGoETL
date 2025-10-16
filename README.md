@@ -88,8 +88,8 @@ Como Ingeniero de Datos (Rol B), mi responsabilidad fue **diseñar el modelo est
 ### 1. Configurar entorno
 
 ```bash
-git clone https://github.com/jjvnz/rolb-ingenierodatos-go.git
-cd rolb-ingenierodatos-go
+git clone https://github.com/jjvnz/CarnicosGoETL.git
+cd CarnicosGoETL
 cp .env.example .env
 # Editar credenciales Azure SQL
 ```
@@ -105,7 +105,7 @@ Ejecutar en Azure Data Studio o portal:
 ### 3. Generar datos sintéticos
 
 ```bash
-go mod init entregables_rolb
+go mod init CarnicosGoETL
 go get github.com/bxcodec/faker/v4 github.com/joho/godotenv github.com/denisenkom/go-mssqldb
 go run 02_Generacion_Datos.go
 ```
