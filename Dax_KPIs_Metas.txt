@@ -1,0 +1,359 @@
+/*****************************************************************
+-- MEDIDAS DAX PARA 20 KPIs ESTRATÉGICOS
+-- Data Warehouse: Cárnicos del Caribe
+-- Esquema: Modelo Estrella Ultra Optimizado
+-- Para usar en Power BI
+*****************************************************************/
+
+-- =========================================================
+-- 1. KPI: CRECIMIENTO VENTAS VS PRESUPUESTO
+-- =========================================================
+Ventas Netas = 
+SUM(Fact_Ventas[PrecioUnitarioVenta] * Fact_Ventas[CantidadUnidades]) - 
+SUM(Fact_Ventas[DescuentoUnitario] * Fact_Ventas[CantidadUnidades])
+
+Meta Ventas Mensual = 1000000  -- Ajustar según presupuesto
+
+KPI Cumplimiento Ventas = 
+DIVIDE([Ventas Netas], [Meta Ventas Mensual], 0)
+
+-- =========================================================
+-- 2. KPI: MARGEN BRUTO
+-- =========================================================
+Costo Total = 
+SUM(Fact_Ventas[CostoUnitario] * Fact_Ventas[CantidadUnidades])
+
+Utilidad Bruta = 
+[Ventas Netas] - [Costo Total]
+
+Margen Bruto = 
+DIVIDE([Utilidad Bruta], [Ventas Netas], 0)
+
+Meta Margen = 0.25  -- 25%
+
+KPI Cumplimiento Margen = 
+DIVIDE([Margen Bruto], [Meta Margen], 0)
+
+-- =========================================================
+-- 3. KPI: TICKET PROMEDIO
+-- =========================================================
+Total Pedidos = 
+DISTINCTCOUNT(Fact_Ventas[NumeroPedido])
+
+Ticket Promedio = 
+DIVIDE([Ventas Netas], [Total Pedidos], 0)
+
+Ticket Promedio Año Anterior = 
+CALCULATE(
+    [Ticket Promedio],
+    SAMEPERIODLASTYEAR(Dim_Tiempo[Fecha])
+)
+
+KPI Crecimiento Ticket = 
+DIVIDE([Ticket Promedio] - [Ticket Promedio Año Anterior], [Ticket Promedio Año Anterior], 0)
+
+Meta Crecimiento Ticket = 0.10  -- 10%
+
+-- =========================================================
+-- 4. KPI: EFICIENCIA POR CANAL
+-- =========================================================
+Ventas por Canal = 
+CALCULATE(
+    [Ventas Netas],
+    VALUES(Dim_CanalVenta[NombreCanal])
+)
+
+Crecimiento Canal Web = 
+VAR VentasActual = CALCULATE([Ventas Netas], Dim_CanalVenta[NombreCanal] = "Sitio Web")
+VAR VentasAnterior = CALCULATE([Ventas Netas], Dim_CanalVenta[NombreCanal] = "Sitio Web", SAMEPERIODLASTYEAR(Dim_Tiempo[Fecha]))
+RETURN DIVIDE(VentasActual - VentasAnterior, VentasAnterior, 0)
+
+Crecimiento Canal Tienda = 
+VAR VentasActual = CALCULATE([Ventas Netas], Dim_CanalVenta[NombreCanal] = "Venta en Tienda")
+VAR VentasAnterior = CALCULATE([Ventas Netas], Dim_CanalVenta[NombreCanal] = "Venta en Tienda", SAMEPERIODLASTYEAR(Dim_Tiempo[Fecha]))
+RETURN DIVIDE(VentasActual - VentasAnterior, VentasAnterior, 0)
+
+-- =========================================================
+-- 5. KPI: PRODUCTOS HIGH-PERFORMER
+-- =========================================================
+Total Productos = 
+DISTINCTCOUNT(Dim_Producto[IDProducto])
+
+Ventas Top 20% Productos = 
+VAR RankingProductos = 
+    SUMMARIZE(
+        Dim_Producto,
+        Dim_Producto[IDProducto],
+        "VentasProducto", [Ventas Netas]
+    )
+VAR TotalVentas = SUMX(RankingProductos, [VentasProducto])
+VAR VentasAcumuladas = 
+    SUMX(
+        TOPN(
+            COUNTROWS(RankingProductos) * 0.2,
+            RankingProductos,
+            [VentasProducto], DESC
+        ),
+        [VentasProducto]
+    )
+RETURN DIVIDE(VentasAcumuladas, TotalVentas, 0)
+
+-- =========================================================
+-- 6. KPI: CUMPLIMIENTO ENTREGAS
+-- =========================================================
+Entregas a Tiempo = 
+CALCULATE(
+    [Total Pedidos],
+    DATEDIFF(
+        RELATED(Dim_Tiempo[Fecha]),  -- Fecha Pedido
+        RELATED(Dim_Tiempo_Entrega[Fecha]),  -- Fecha Entrega
+        DAY
+    ) <= 5
+)
+
+KPI Entregas a Tiempo = 
+DIVIDE([Entregas a Tiempo], [Total Pedidos], 0)
+
+Meta Entregas a Tiempo = 0.95  -- 95%
+
+-- =========================================================
+-- 7. KPI: EBITDA SUCURSAL
+-- =========================================================
+EBITDA Sucursal = 
+AVERAGE(Fact_Finanzas[UtilidadNeta] / Fact_Finanzas[VentasTotales])
+
+Meta EBITDA = 0.15  -- 15%
+
+KPI EBITDA = 
+DIVIDE([EBITDA Sucursal], [Meta EBITDA], 0)
+
+-- =========================================================
+-- 8. KPI: CONTROL DE GASTOS
+-- =========================================================
+Porcentaje Gastos = 
+SUM(Fact_Finanzas[GastosOperativos]) / SUM(Fact_Finanzas[VentasTotales])
+
+Meta Gastos = 0.20  -- 20%
+
+KPI Control Gastos = 
+DIVIDE([Meta Gastos], [Porcentaje Gastos], 0)  -- >1 = mejor
+
+-- =========================================================
+-- 9. KPI: ROI POR SUCURSAL
+-- =========================================================
+-- Nota: Requiere tabla de inversiones por sucursal
+ROI Sucursal = 
+SUM(Fact_Finanzas[UtilidadNeta]) / [Inversión Sucursal]  -- Ajustar inversión
+
+Meta ROI = 0.25  -- 25%
+
+KPI ROI = 
+DIVIDE([ROI Sucursal], [Meta ROI], 0)
+
+-- =========================================================
+-- 10. KPI: LIQUIDEZ MENSUAL
+-- =========================================================
+Liquidez Mensual = 
+SUM(Fact_Finanzas[UtilidadNeta])
+
+Estado Liquidez = 
+IF([Liquidez Mensual] > 0, "POSITIVO", 
+   IF([Liquidez Mensual] = 0, "NEUTRO", "NEGATIVO"))
+
+-- =========================================================
+-- 11. KPI: NPS (NET PROMOTER SCORE)
+-- =========================================================
+Total Encuestas = 
+COUNTROWS(Fact_SatisfaccionCliente)
+
+Promotores = 
+CALCULATE(
+    [Total Encuestas],
+    Fact_SatisfaccionCliente[PuntuacionGeneral] >= 9
+)
+
+Detractores = 
+CALCULATE(
+    [Total Encuestas],
+    Fact_SatisfaccionCliente[PuntuacionGeneral] <= 6
+)
+
+NPS = 
+DIVIDE([Promotores] - [Detractores], [Total Encuestas], 0)
+
+Meta NPS = 50  -- Puntos NPS
+
+KPI NPS = 
+DIVIDE([NPS] * 100, [Meta NPS], 0)
+
+-- =========================================================
+-- 12. KPI: RETENCIÓN CLIENTES
+-- =========================================================
+Clientes Únicos = 
+DISTINCTCOUNT(Fact_Ventas[IDCliente])
+
+Clientes Recurrentes = 
+CALCULATE(
+    [Clientes Únicos],
+    DATESBETWEEN(
+        Dim_Tiempo[Fecha],
+        DATE(YEAR(TODAY())-1, 1, 1),
+        DATE(YEAR(TODAY())-1, 12, 31)
+    )
+)  -- Clientes que compraron el año anterior
+
+KPI Retención = 
+DIVIDE([Clientes Recurrentes], [Clientes Únicos], 0)
+
+Meta Retención = 0.80  -- 80%
+
+-- =========================================================
+-- 13. KPI: SATISFACCIÓN POR PRODUCTO
+-- =========================================================
+Puntuación Promedio Producto = 
+AVERAGE(Fact_SatisfaccionCliente[PuntuacionProducto])
+
+Meta Satisfacción Producto = 8.0
+
+KPI Satisfacción Producto = 
+DIVIDE([Puntuación Promedio Producto], [Meta Satisfacción Producto], 0)
+
+-- =========================================================
+-- 14. KPI: VALOR VIDA DEL CLIENTE (LTV)
+-- =========================================================
+LTV = 
+DIVIDE([Ventas Netas], [Clientes Únicos], 0)
+
+LTV Año Anterior = 
+CALCULATE(
+    [LTV],
+    SAMEPERIODLASTYEAR(Dim_Tiempo[Fecha])
+)
+
+KPI Crecimiento LTV = 
+DIVIDE([LTV] - [LTV Año Anterior], [LTV Año Anterior], 0)
+
+Meta Crecimiento LTV = 0.15  -- 15%
+
+-- =========================================================
+-- 15. KPI: TASA CONVERSIÓN DIGITAL
+-- =========================================================
+Sesiones Totales = 
+SUM(Fact_MetricasWeb[SesionesTotales])
+
+Conversiones Totales = 
+SUM(Fact_MetricasWeb[Conversiones])
+
+Tasa Conversión = 
+DIVIDE([Conversiones Totales], [Sesiones Totales], 0)
+
+Meta Tasa Conversión = 0.05  -- 5%
+
+KPI Conversión = 
+DIVIDE([Tasa Conversión], [Meta Tasa Conversión], 0)
+
+-- =========================================================
+-- 16. KPI: CRECIMIENTO TRÁFICO ORGÁNICO
+-- =========================================================
+Sesiones Mes Actual = 
+CALCULATE(
+    [Sesiones Totales],
+    Dim_Tiempo[Mes] = MONTH(TODAY())
+)
+
+Sesiones Mes Anterior = 
+CALCULATE(
+    [Sesiones Totales],
+    Dim_Tiempo[Mes] = MONTH(TODAY()) - 1
+)
+
+Crecimiento Tráfico = 
+DIVIDE([Sesiones Mes Actual] - [Sesiones Mes Anterior], [Sesiones Mes Anterior], 0)
+
+Meta Crecimiento Tráfico = 0.20  -- 20%
+
+-- =========================================================
+-- 17. KPI: ROI MARKETING DIGITAL
+-- =========================================================
+Ingresos Digitales = 
+SUM(Fact_MetricasWeb[IngresosDigitales])
+
+Inversión Marketing = 10000  -- Ajustar según datos reales
+
+ROI Marketing = 
+DIVIDE([Ingresos Digitales] - [Inversión Marketing], [Inversión Marketing], 0)
+
+Meta ROI Marketing = 3.00  -- 300%
+
+KPI ROI Marketing = 
+DIVIDE([ROI Marketing], [Meta ROI Marketing], 0)
+
+-- =========================================================
+-- 18. KPI: EFICIENCIA POR SUCURSAL
+-- =========================================================
+-- Nota: Requiere datos de metros cuadrados por sucursal
+Ventas por m2 = 
+[Ventas Netas] / [Metros Cuadrados Sucursal]  -- Ajustar metros cuadrados
+
+Meta Ventas m2 = 5000
+
+KPI Eficiencia Sucursal = 
+DIVIDE([Ventas por m2], [Meta Ventas m2], 0)
+
+-- =========================================================
+-- 19. KPI: ROTACIÓN INVENTARIO
+-- =========================================================
+-- Nota: Requiere datos de inventario promedio
+Costo Ventas = 
+[Costos Totales]
+
+Inventario Promedio = 100000  -- Ajustar según datos reales
+
+Rotación Inventario = 
+DIVIDE([Costo Ventas], [Inventario Promedio], 0)
+
+Meta Rotación = 8
+
+KPI Rotación = 
+DIVIDE([Rotación Inventario], [Meta Rotación], 0)
+
+-- =========================================================
+-- 20. KPI: PRODUCTIVIDAD EMPLEADOS
+-- =========================================================
+Empleados Activos = 
+CALCULATE(
+    DISTINCTCOUNT(Dim_Empleado[IDEmpleado]),
+    Dim_Empleado[EmpleadoActivo] = TRUE()
+)
+
+Ventas por Empleado = 
+DIVIDE([Ventas Netas], [Empleados Activos], 0)
+
+Meta Productividad = 50000
+
+KPI Productividad = 
+DIVIDE([Ventas por Empleado], [Meta Productividad], 0)
+
+-- =========================================================
+-- TABLA RESUMEN DE KPIs (Para dashboard)
+-- =========================================================
+KPI Resumen = 
+UNION(
+    ROW("KPI", "Crecimiento Ventas", "Valor", [KPI Cumplimiento Ventas], "Meta", 1.0, "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Margen Bruto", "Valor", [KPI Cumplimiento Margen], "Meta", 1.0, "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Ticket Promedio", "Valor", [KPI Crecimiento Ticket], "Meta", [Meta Crecimiento Ticket], "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Entregas a Tiempo", "Valor", [KPI Entregas a Tiempo], "Meta", [Meta Entregas a Tiempo], "Fuente", "Fact_Ventas"),
+    ROW("KPI", "EBITDA", "Valor", [KPI EBITDA], "Meta", 1.0, "Fuente", "Fact_Finanzas"),
+    ROW("KPI", "Control Gastos", "Valor", [KPI Control Gastos], "Meta", 1.0, "Fuente", "Fact_Finanzas"),
+    ROW("KPI", "ROI", "Valor", [KPI ROI], "Meta", 1.0, "Fuente", "Fact_Finanzas"),
+    ROW("KPI", "NPS", "Valor", [KPI NPS], "Meta", 1.0, "Fuente", "Fact_SatisfaccionCliente"),
+    ROW("KPI", "Retención Clientes", "Valor", [KPI Retención], "Meta", [Meta Retención], "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Satisfacción Producto", "Valor", [KPI Satisfacción Producto], "Meta", 1.0, "Fuente", "Fact_SatisfaccionCliente"),
+    ROW("KPI", "Crecimiento LTV", "Valor", [KPI Crecimiento LTV], "Meta", [Meta Crecimiento LTV], "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Tasa Conversión", "Valor", [KPI Conversión], "Meta", 1.0, "Fuente", "Fact_MetricasWeb"),
+    ROW("KPI", "Crecimiento Tráfico", "Valor", [Crecimiento Tráfico], "Meta", [Meta Crecimiento Tráfico], "Fuente", "Fact_MetricasWeb"),
+    ROW("KPI", "ROI Marketing", "Valor", [KPI ROI Marketing], "Meta", 1.0, "Fuente", "Fact_MetricasWeb"),
+    ROW("KPI", "Eficiencia Sucursal", "Valor", [KPI Eficiencia Sucursal], "Meta", 1.0, "Fuente", "Fact_Ventas + Dim_Sucursal"),
+    ROW("KPI", "Rotación Inventario", "Valor", [KPI Rotación], "Meta", 1.0, "Fuente", "Fact_Ventas"),
+    ROW("KPI", "Productividad Empleados", "Valor", [KPI Productividad], "Meta", 1.0, "Fuente", "Fact_Ventas + Dim_Empleado")
+)

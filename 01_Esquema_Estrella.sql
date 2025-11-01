@@ -1,6 +1,6 @@
 -- ==============================================================
---  MODELO ESTRELLA ULTRA OPTIMIZADO - VERSIÓN DEFINITIVA
---  Síntesis final de todo el debate - Power BI Focus
+--  MODELO ESTRELLA ULTRA OPTIMIZADO - VERSIÓN CORREGIDA
+--  Sin ambigüedades - Power BI Ready
 --  Fecha: 31 de Octubre 2025
 -- ==============================================================
 
@@ -22,7 +22,7 @@ CREATE TABLE Dim_Tiempo (
     NumeroSemana INT,
     EsFinDeSemana BIT,
     EsFeriado BIT DEFAULT 0,
-    TrimestreAnio NVARCHAR(10) -- 'Q1-2024'
+    TrimestreAnio NVARCHAR(10)
 );
 
 CREATE TABLE Dim_Producto (
@@ -65,14 +65,11 @@ CREATE TABLE Dim_Empleado (
     NombreEmpleado NVARCHAR(200) NOT NULL,
     Cargo NVARCHAR(100) NOT NULL,
     Departamento NVARCHAR(100),
-    -- ✅ DESNORMALIZACIÓN COMPLETA (Consenso del debate)
-    CodigoSucursal NVARCHAR(10) NOT NULL,
-    NombreSucursal NVARCHAR(150) NOT NULL,
-    CiudadSucursal NVARCHAR(100) NOT NULL,
-    RegionSucursal NVARCHAR(100) NOT NULL,
-    TipoSucursal NVARCHAR(50) NOT NULL,
+    -- ✅ CORREGIDO: SOLO IDSucursal como FK (sin datos duplicados)
+    IDSucursal INT NOT NULL,
     FechaContratacion DATE,
-    EmpleadoActivo BIT DEFAULT 1
+    EmpleadoActivo BIT DEFAULT 1,
+    CONSTRAINT FK_Empleado_Sucursal FOREIGN KEY (IDSucursal) REFERENCES Dim_Sucursal(IDSucursal)
 );
 
 CREATE TABLE Dim_CanalVenta (
@@ -86,7 +83,7 @@ CREATE TABLE Dim_EstadoPedido (
     IDEstado INT PRIMARY KEY,
     CodigoEstado NVARCHAR(10) UNIQUE NOT NULL,
     DescripcionEstado NVARCHAR(50) NOT NULL,
-    EsEstadoFinal BIT DEFAULT 0 -- ✅ Para análisis de completitud
+    EsEstadoFinal BIT DEFAULT 0
 );
 
 -- =======================
@@ -94,30 +91,29 @@ CREATE TABLE Dim_EstadoPedido (
 -- =======================
 
 CREATE TABLE Fact_Ventas (
-    -- ✅ CLAVES
     IDVenta BIGINT IDENTITY(1,1) PRIMARY KEY,
     NumeroPedido NVARCHAR(20) UNIQUE NOT NULL,
     
-    -- ✅ DIMENSIONES DE ROL (Múltiples tiempos)
+    -- DIMENSIONES DE ROL (Múltiples tiempos)
     IDTiempoVenta INT NOT NULL,
     IDTiempoPedido INT NOT NULL,
     IDTiempoEntrega INT NULL,
     
-    -- ✅ DIMENSIONES PRINCIPALES
+    -- DIMENSIONES PRINCIPALES
     IDProducto INT NOT NULL,
     IDCliente INT NOT NULL,
-    IDSucursal INT NOT NULL,
-    IDEmpleado INT NULL,
+    IDSucursal INT NOT NULL,  -- ✅ Sucursal de la venta
+    IDEmpleado INT NULL,      -- ✅ Empleado que realizó la venta
     IDCanal INT NOT NULL,
     IDEstadoPedido INT NOT NULL,
 
-    -- ✅ MEDIDAS BASE (Sin cálculos - para DAX)
+    -- MEDIDAS BASE
     CantidadUnidades INT NOT NULL,
     PrecioUnitarioVenta DECIMAL(18,2) NOT NULL,
     CostoUnitario DECIMAL(18,2) NOT NULL,
     DescuentoUnitario DECIMAL(18,2) DEFAULT 0,
     
-    -- ✅ RESTRICCIONES
+    -- RESTRICCIONES
     CONSTRAINT FK_Ventas_TiempoVenta FOREIGN KEY (IDTiempoVenta) REFERENCES Dim_Tiempo(IDTiempo),
     CONSTRAINT FK_Ventas_TiempoPedido FOREIGN KEY (IDTiempoPedido) REFERENCES Dim_Tiempo(IDTiempo),
     CONSTRAINT FK_Ventas_TiempoEntrega FOREIGN KEY (IDTiempoEntrega) REFERENCES Dim_Tiempo(IDTiempo),
@@ -152,7 +148,7 @@ CREATE TABLE Fact_SatisfaccionCliente (
     IDTiempo INT NOT NULL,
     IDSucursal INT NOT NULL,
     IDCliente INT NOT NULL,
-    IDProducto INT NULL, -- ✅ Para análisis de satisfacción por producto
+    IDProducto INT NULL,
     PuntuacionServicio INT NOT NULL CHECK (PuntuacionServicio BETWEEN 1 AND 10),
     PuntuacionProducto INT NOT NULL CHECK (PuntuacionProducto BETWEEN 1 AND 10),
     PuntuacionGeneral INT NOT NULL CHECK (PuntuacionGeneral BETWEEN 1 AND 10),
@@ -177,11 +173,36 @@ CREATE TABLE Fact_MetricasWeb (
 );
 
 -- =======================
--- ÍNDICES RECOMENDADOS
+-- ÍNDICES OPTIMIZADOS
 -- =======================
 
 CREATE INDEX IX_Fact_Ventas_TiempoVenta ON Fact_Ventas(IDTiempoVenta);
 CREATE INDEX IX_Fact_Ventas_Producto ON Fact_Ventas(IDProducto);
 CREATE INDEX IX_Fact_Ventas_Cliente ON Fact_Ventas(IDCliente);
 CREATE INDEX IX_Fact_Ventas_Sucursal ON Fact_Ventas(IDSucursal);
+CREATE INDEX IX_Fact_Ventas_Empleado ON Fact_Ventas(IDEmpleado);
 CREATE INDEX IX_Fact_Ventas_Estado ON Fact_Ventas(IDEstadoPedido);
+
+-- Índices para dimensiones
+CREATE INDEX IX_Dim_Tiempo_Anio_Mes ON Dim_Tiempo(Anio, Mes);
+CREATE INDEX IX_Dim_Producto_Categoria ON Dim_Producto(Categoria);
+CREATE INDEX IX_Dim_Cliente_Region ON Dim_Cliente(Region);
+CREATE INDEX IX_Dim_Empleado_Sucursal ON Dim_Empleado(IDSucursal);
+
+-- Columnstore para mejor rendimiento en Power BI
+CREATE CLUSTERED COLUMNSTORE INDEX CCI_Fact_Ventas ON Fact_Ventas;
+CREATE CLUSTERED COLUMNSTORE INDEX CCI_Fact_Finanzas ON Fact_Finanzas;
+
+-- =======================
+-- CHECKS DE CALIDAD
+-- =======================
+
+ALTER TABLE Fact_Ventas 
+ADD CONSTRAINT CK_Cantidad_Positiva CHECK (CantidadUnidades > 0),
+    CONSTRAINT CK_Precios_No_Negativos CHECK (PrecioUnitarioVenta >= 0 AND CostoUnitario >= 0),
+    CONSTRAINT CK_Descuento_Valido CHECK (DescuentoUnitario >= 0 AND DescuentoUnitario <= PrecioUnitarioVenta);
+
+ALTER TABLE Dim_Tiempo
+ADD CONSTRAINT CK_Mes_Valido CHECK (Mes BETWEEN 1 AND 12),
+    CONSTRAINT CK_Trimestre_Valido CHECK (Trimestre BETWEEN 1 AND 4),
+    CONSTRAINT CK_Dia_Valido CHECK (Dia BETWEEN 1 AND 31);
