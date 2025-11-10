@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # SQL Server local para testing
+  sqlserver-test:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: dw-test-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=TestP@ssw0rd123!
+      - MSSQL_PID=Developer
+      - MSSQL_MEMORY_LIMIT_MB=2048
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-test-data:/var/opt/mssql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestP@ssw0rd123! -Q "SELECT 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Aplicación de generación de datos (modo test)
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: dw-data-generator
+    environment:
+      - AZURE_SQL_SERVER=sqlserver-test
+      - AZURE_SQL_PORT=1433
+      - AZURE_SQL_USER=sa
+      - AZURE_SQL_PASSWORD=TestP@ssw0rd123!
+      - AZURE_SQL_DATABASE=DataWarehouseTest
+      - TEST_MODE=true
+      - SCALE_FACTOR=0.01
+    depends_on:
+      sqlserver-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ./reports:/app/reports
+
+  # Validador de tests
+  test-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: dw-test-validator
+    environment:
+      - AZURE_SQL_SERVER=sqlserver-test
+      - AZURE_SQL_PORT=1433
+      - AZURE_SQL_USER=sa
+      - AZURE_SQL_PASSWORD=TestP@ssw0rd123!
+      - AZURE_SQL_DATABASE=DataWarehouseTest
+    depends_on:
+      - data-generator
+    networks:
+      - test-network
+    volumes:
+      - ./reports:/app/reports
+    command: ["go", "run", "test_suite.go"]
+
+  # Adminer para inspección visual de datos
+  adminer:
+    image: adminer:latest
+    container_name: dw-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=sqlserver-test
+    depends_on:
+      - sqlserver-test
+    networks:
+      - test-network
+
+volumes:
+  sqlserver-test-data:
+
+networks:
+  test-network:
+    driver: bridge
