@@ -1,0 +1,22 @@
+FROM golang:1.21-alpine
+
+WORKDIR /app
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache git make
+
+# Copiar go.mod y go.sum
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copiar código fuente
+COPY . .
+
+# Compilar aplicación
+RUN go build -o main .
+RUN go build -o test_suite test_suite.go
+
+# Exponer puerto para profiling
+EXPOSE 8081 8082
+
+CMD ["./main"]

@@ -1,0 +1,33 @@
+# Archivos de configuración sensibles
+.env
+.env.test
+.env.production
+
+# Reportes y logs
+reports/*.txt
+reports/*.csv
+*.log
+
+# Archivos de profiling
+*.prof
+cpu.prof
+mem.prof
+
+# Temporales
+.temp/
+*.tmp
+
+# Binarios
+*.exe
+main
+test_suite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -533,7 +533,7 @@ func main() {
 	password := os.Getenv("AZURE_SQL_PASSWORD")
 	database := os.Getenv("AZURE_SQL_DATABASE")
 
-	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=true",
+	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=disable",
 		server, port, user, password, database)
 
 	db, err := sql.Open("sqlserver", connString)

@@ -1,0 +1,83 @@
+REPORTE DE TESTING - DATA WAREHOUSE
+Generado: 2025-11-11 12:05:29
+
+[PASS] FK Ventas -> Productos
+  Mensaje: Integridad referencial OK
+  Tiempo: 530ms
+
+[PASS] FK Ventas -> Clientes
+  Mensaje: Integridad referencial OK
+  Tiempo: 61ms
+
+[PASS] FK Ventas -> Sucursales
+  Mensaje: Integridad referencial OK
+  Tiempo: 121ms
+
+[PASS] FK Ventas -> Empleados
+  Mensaje: Integridad referencial OK
+  Tiempo: 106ms
+
+[PASS] FK Empleados -> Sucursales
+  Mensaje: Integridad referencial OK
+  Tiempo: 15ms
+
+[PASS] FK Ventas -> Tiempo (Venta)
+  Mensaje: Integridad referencial OK
+  Tiempo: 57ms
+
+[PASS] Ventas sin NULLs en campos críticos
+  Mensaje: Calidad OK
+  Tiempo: 3ms
+
+[PASS] Precios coherentes (Precio > Costo)
+  Mensaje: Calidad OK
+  Tiempo: 28ms
+
+[PASS] Descuentos razonables (<50%)
+  Mensaje: Calidad OK
+  Tiempo: 34ms
+
+[PASS] Fechas coherentes (Pedido <= Venta <= Entrega)
+  Mensaje: Calidad OK
+  Tiempo: 318ms
+
+[PASS] Clientes activos representan >80%
+  Mensaje: Calidad OK
+  Tiempo: 104ms
+
+[PASS] Productos activos representan >70%
+  Mensaje: Calidad OK
+  Tiempo: 8ms
+
+[PASS] Satisfacción promedio entre 6-9
+  Mensaje: Promedio OK: 6.98
+  Tiempo: 10ms
+
+[PASS] Distribución de Ventas por Categoría
+  Mensaje: Distribución calculada correctamente
+  Tiempo: 126ms
+
+[PASS] Top 5 Clientes por Volumen
+  Mensaje: Distribución calculada correctamente
+  Tiempo: 247ms
+
+[PASS] Ventas por Canal
+  Mensaje: Distribución calculada correctamente
+  Tiempo: 119ms
+
+[PASS] Resumen de Tablas
+  Mensaje: Distribución calculada correctamente
+  Tiempo: 78ms
+
+[PASS] Query Ventas Mensuales
+  Mensaje: Performance OK: 130ms (37 filas)
+  Tiempo: 130ms
+
+[PASS] Query Top Productos
+  Mensaje: Performance OK: 82ms (10 filas)
+  Tiempo: 82ms
+
+[PASS] Query Métricas por Sucursal
+  Mensaje: Performance OK: 242ms (20 filas)
+  Tiempo: 242ms
+

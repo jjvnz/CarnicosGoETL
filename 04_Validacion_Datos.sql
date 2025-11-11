@@ -422,18 +422,30 @@ SELECT
     (SELECT COUNT(*) FROM Fact_MetricasWeb) AS Valor
 
 UNION ALL
-SELECT 'TABLAS_CON_DATOS', 
-    (SELECT COUNT(*) FROM (VALUES 
-        (SELECT COUNT(*) FROM Dim_Tiempo),
-        (SELECT COUNT(*) FROM Dim_Producto),
-        (SELECT COUNT(*) FROM Dim_Cliente),
-        (SELECT COUNT(*) FROM Dim_Sucursal),
-        (SELECT COUNT(*) FROM Dim_Empleado),
-        (SELECT COUNT(*) FROM Fact_Ventas),
-        (SELECT COUNT(*) FROM Fact_Finanzas),
-        (SELECT COUNT(*) FROM Fact_SatisfaccionCliente),
-        (SELECT COUNT(*) FROM Fact_MetricasWeb)
-    ) AS t(contador) WHERE contador > 0)
+SELECT 'TABLAS_CON_DATOS' AS Descripcion, 
+    (
+        SELECT COUNT(*) 
+        FROM (
+            SELECT COUNT(*) AS contador FROM Dim_Tiempo
+            UNION ALL
+            SELECT COUNT(*) FROM Dim_Producto
+            UNION ALL
+            SELECT COUNT(*) FROM Dim_Cliente
+            UNION ALL
+            SELECT COUNT(*) FROM Dim_Sucursal
+            UNION ALL
+            SELECT COUNT(*) FROM Dim_Empleado
+            UNION ALL
+            SELECT COUNT(*) FROM Fact_Ventas
+            UNION ALL
+            SELECT COUNT(*) FROM Fact_Finanzas
+            UNION ALL
+            SELECT COUNT(*) FROM Fact_SatisfaccionCliente
+            UNION ALL
+            SELECT COUNT(*) FROM Fact_MetricasWeb
+        ) AS t
+        WHERE contador > 0
+    ) AS TablasConDatos
 
 UNION ALL
 SELECT 'VENTAS_TOTALES', (SELECT SUM(PrecioUnitarioVenta * CantidadUnidades - DescuentoUnitario) FROM Fact_Ventas)

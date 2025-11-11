@@ -1,25 +1,22 @@
-version: '3.8'
-
 services:
   # SQL Server local para testing
   sqlserver-test:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: dw-test-sqlserver
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=TestP@ssw0rd123!
+      - ACCEPT_EULA=1
+      - MSSQL_SA_PASSWORD=TestP@ssw0rd123!
       - MSSQL_PID=Developer
-      - MSSQL_MEMORY_LIMIT_MB=2048
     ports:
       - "1433:1433"
     volumes:
       - sqlserver-test-data:/var/opt/mssql
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestP@ssw0rd123! -Q "SELECT 1"
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestP@ssw0rd123! -Q "SELECT 1" || exit 1
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     networks:
       - test-network
 
@@ -63,7 +60,7 @@ services:
       - test-network
     volumes:
       - ./reports:/app/reports
-    command: ["go", "run", "test_suite.go"]
+    command: ["./validator"]
 
   # Adminer para inspección visual de datos
   adminer:

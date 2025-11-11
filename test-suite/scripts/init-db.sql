@@ -177,6 +177,9 @@ GO
 -- TABLAS DE HECHOS
 -- =============================================================================
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- Fact_Ventas
 CREATE TABLE Fact_Ventas (
     IDVenta INT IDENTITY(1,1) PRIMARY KEY,
@@ -195,12 +198,6 @@ CREATE TABLE Fact_Ventas (
     CostoUnitario DECIMAL(18,2) NOT NULL,
     DescuentoUnitario DECIMAL(18,2) NOT NULL DEFAULT 0,
     FechaCreacion DATETIME DEFAULT GETDATE(),
-    
-    -- Columnas calculadas para análisis rápido
-    MontoTotal AS (CantidadUnidades * (PrecioUnitarioVenta - DescuentoUnitario)) PERSISTED,
-    MontoDescuento AS (CantidadUnidades * DescuentoUnitario) PERSISTED,
-    MontoCosto AS (CantidadUnidades * CostoUnitario) PERSISTED,
-    Margen AS (CantidadUnidades * (PrecioUnitarioVenta - DescuentoUnitario - CostoUnitario)) PERSISTED,
     
     -- Foreign Keys
     CONSTRAINT FK_Ventas_TiempoVenta FOREIGN KEY (IDTiempoVenta) 
@@ -323,7 +320,7 @@ SELECT
     p.Categoria,
     COUNT(*) AS TotalVentas,
     SUM(v.CantidadUnidades) AS UnidadesVendidas,
-    SUM(v.MontoTotal) AS VentasTotales,
+    SUM(v.CantidadUnidades * (v.PrecioUnitarioVenta - v.DescuentoUnitario)) AS VentasTotales,
     AVG(v.PrecioUnitarioVenta) AS PrecioPromedio
 FROM Fact_Ventas v
 INNER JOIN Dim_Producto p ON v.IDProducto = p.IDProducto
@@ -336,8 +333,8 @@ SELECT
     s.NombreSucursal,
     s.Ciudad,
     COUNT(v.IDVenta) AS TotalVentas,
-    SUM(v.MontoTotal) AS VentasTotales,
-    AVG(v.Margen) AS MargenPromedio,
+    SUM(v.CantidadUnidades * (v.PrecioUnitarioVenta - v.DescuentoUnitario)) AS VentasTotales,
+    AVG(v.CantidadUnidades * (v.PrecioUnitarioVenta - v.DescuentoUnitario - v.CostoUnitario)) AS MargenPromedio,
     COUNT(DISTINCT v.IDCliente) AS ClientesUnicos
 FROM Dim_Sucursal s
 LEFT JOIN Fact_Ventas v ON s.IDSucursal = v.IDSucursal
@@ -387,7 +384,7 @@ PRINT '  • 2 Vistas Analíticas';
 PRINT '  • 1 Procedimiento Almacenado';
 PRINT '';
 PRINT 'Próximos pasos:';
-PRINT '  1. Ejecutar: go run main.go';
+PRINT '  1. Ejecutar: go run 02_Generacion_Datos.go';
 PRINT '  2. Validar: go run test_suite.go';
 PRINT '';
 GO

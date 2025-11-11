@@ -171,7 +171,7 @@ if [ ! -f "go.mod" ]; then
     # Agregar dependencias
     go get github.com/denisenkom/go-mssqldb
     go get github.com/joho/godotenv
-    go get github.com/bxcodec/faker/v4
+    go get github.com/go-faker/faker/v4
     
     echo -e "${GREEN}✅ Go modules inicializados${NC}"
 else
@@ -189,11 +189,10 @@ echo ""
 echo -e "${BLUE}🔍 Verificando archivos necesarios...${NC}"
 
 FILES_NEEDED=(
-    "main.go"
     "test_suite.go"
     "docker-compose.test.yml"
-    "Makefile"
     "scripts/init-db.sql"
+    "../02_Generacion_Datos.go"
 )
 
 MISSING_FILES=()
@@ -244,14 +243,27 @@ case $option in
         echo -e "${BLUE}📦 Iniciando SQL Server...${NC}"
         docker-compose -f docker-compose.test.yml up -d sqlserver-test
         
-        # Esperar a que esté listo
-        echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo (30 segundos)...${NC}"
-        sleep 30
+        # Esperar a que esté listo con verificación activa
+        echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo...${NC}"
+        for i in {1..60}; do
+            if docker exec dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' -Q "SELECT 1" &> /dev/null; then
+                echo -e "${GREEN}✅ SQL Server está listo (${i}s)${NC}"
+                break
+            fi
+            echo -n "."
+            sleep 1
+        done
+        echo ""
+        
+        # Ejecutar script de inicialización
+        echo -e "${BLUE}🗃️  Creando esquema de base de datos...${NC}"
+        docker exec -i dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' < scripts/init-db.sql
+        echo -e "${GREEN}✅ Esquema creado${NC}"
         
         # Ejecutar generación de datos
         echo ""
         echo -e "${BLUE}💾 Generando datos (SCALE_FACTOR=0.001)...${NC}"
-        SCALE_FACTOR=0.001 go run main.go
+        (cd .. && SCALE_FACTOR=0.001 go run 02_Generacion_Datos.go)
         
         # Ejecutar tests
         echo ""
@@ -269,12 +281,24 @@ case $option in
         echo ""
         
         docker-compose -f docker-compose.test.yml up -d sqlserver-test
-        echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo (30 segundos)...${NC}"
-        sleep 30
+        echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo...${NC}"
+        for i in {1..60}; do
+            if docker exec dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' -Q "SELECT 1" &> /dev/null; then
+                echo -e "${GREEN}✅ SQL Server está listo (${i}s)${NC}"
+                break
+            fi
+            echo -n "."
+            sleep 1
+        done
+        echo ""
+        
+        echo -e "${BLUE}🗃️  Creando esquema de base de datos...${NC}"
+        docker exec -i dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' < scripts/init-db.sql
+        echo -e "${GREEN}✅ Esquema creado${NC}"
         
         echo ""
         echo -e "${BLUE}💾 Generando datos (SCALE_FACTOR=0.01)...${NC}"
-        SCALE_FACTOR=0.01 go run main.go
+        (cd .. && SCALE_FACTOR=0.01 go run 02_Generacion_Datos.go)
         
         echo ""
         echo -e "${BLUE}🧪 Ejecutando validaciones...${NC}"
@@ -296,12 +320,24 @@ case $option in
             echo -e "${BLUE}🚀 Iniciando Test Completo...${NC}"
             
             docker-compose -f docker-compose.test.yml up -d sqlserver-test
-            echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo (30 segundos)...${NC}"
-            sleep 30
+            echo -e "${YELLOW}⏳ Esperando a que SQL Server esté listo...${NC}"
+            for i in {1..60}; do
+                if docker exec dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' -Q "SELECT 1" &> /dev/null; then
+                    echo -e "${GREEN}✅ SQL Server está listo (${i}s)${NC}"
+                    break
+                fi
+                echo -n "."
+                sleep 1
+            done
+            echo ""
+            
+            echo -e "${BLUE}🗃️  Creando esquema de base de datos...${NC}"
+            docker exec -i dw-test-sqlserver //opt//mssql-tools//bin//sqlcmd -S localhost -U sa -P 'TestP@ssw0rd123!' < scripts/init-db.sql
+            echo -e "${GREEN}✅ Esquema creado${NC}"
             
             echo ""
             echo -e "${BLUE}💾 Generando datos (SCALE_FACTOR=1.0)...${NC}"
-            SCALE_FACTOR=1.0 go run main.go
+            (cd .. && SCALE_FACTOR=1.0 go run 02_Generacion_Datos.go)
             
             echo ""
             echo -e "${BLUE}🧪 Ejecutando validaciones...${NC}"

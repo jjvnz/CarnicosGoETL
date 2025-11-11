@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bxcodec/faker/v4"
+	"github.com/go-faker/faker/v4"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/joho/godotenv"
 )
@@ -44,7 +44,7 @@ var config = Config{
 	DimEmpleados:   2_000, // 0.2%
 	DimTiempoAnios: 3,
 
-	BatchSize: 200,
+	BatchSize: 100, // Reducido de 200 a 100 para evitar límite de 2100 parámetros
 }
 
 // ================== CACHE DE TIEMPO ==================
@@ -132,7 +132,7 @@ func main() {
 	password := mustEnv("AZURE_SQL_PASSWORD")
 	database := mustEnv("AZURE_SQL_DATABASE")
 
-	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=true",
+	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=disable",
 		server, port, user, password, database)
 
 	db, err := sql.Open("sqlserver", connString)
@@ -455,7 +455,7 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 	for i := 0; i < config.DimEmpleados; i++ {
 		// ✅ ESTRUCTURA CORREGIDA - Solo campos que existen en el modelo normalizado
 		rows = append(rows, []interface{}{
-			i + 1, // IDEmpleado (PK)
+			// IDEmpleado se auto-genera (IDENTITY), NO se incluye aquí
 			fmt.Sprintf("EMP-%05d", i+1),
 			faker.Name(),
 			cargos[rand.Intn(len(cargos))],
@@ -464,12 +464,11 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 			time.Now().AddDate(-rand.Intn(10), -rand.Intn(12), -rand.Intn(28)),
 			rand.Float64() < 0.92, // EmpleadoActivo
 		})
-		ids = append(ids, i+1)
 
 		if len(rows) == config.BatchSize || i == config.DimEmpleados-1 {
-			// ✅ COLUMNAS ACTUALIZADAS al modelo normalizado
+			// ✅ COLUMNAS ACTUALIZADAS al modelo normalizado (sin IDEmpleado)
 			if err := insertBatchTx(ctx, tx, "Dim_Empleado", []string{
-				"IDEmpleado", // ✅ NUEVO
+				// "IDEmpleado" se omite porque es IDENTITY
 				"CodigoEmpleado",
 				"NombreEmpleado",
 				"Cargo",
@@ -485,7 +484,21 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 	}
 
 	tx.Commit()
-	log.Printf("✔ Dim_Empleado completada (%d registros) - ESTRUCTURA NORMALIZADA\n", config.DimEmpleados)
+	
+	// Recuperar IDs generados
+	rows2, err := db.QueryContext(ctx, "SELECT IDEmpleado FROM Dim_Empleado ORDER BY IDEmpleado")
+	if err != nil {
+		log.Fatalf("❌ Error recuperando IDs de empleados: %v", err)
+	}
+	defer rows2.Close()
+	
+	for rows2.Next() {
+		var id int
+		rows2.Scan(&id)
+		ids = append(ids, id)
+	}
+
+	log.Printf("✔ Dim_Empleado completada (%d registros) - ESTRUCTURA NORMALIZADA\n", len(ids))
 	return ids
 }
 
@@ -587,10 +600,21 @@ func populateFactVentas(ctx context.Context, db *sql.DB, productoIDs, clienteIDs
 		fechaPedido := fechaVenta.AddDate(0, 0, -rand.Intn(3))   // 0-2 días antes
 		fechaEntrega := fechaVenta.AddDate(0, 0, rand.Intn(5)+1) // 1-5 días después
 
-		// Buscar IDs desde cache
-		idTiempoVenta, _ := tiempoCache.Get(fechaVenta)
-		idTiempoPedido, _ := tiempoCache.Get(fechaPedido)
-		idTiempoEntrega, _ := tiempoCache.Get(fechaEntrega)
+		// Buscar IDs desde cache - si no existen, usar la fecha de venta
+		idTiempoVenta, ok := tiempoCache.Get(fechaVenta)
+		if !ok {
+			continue // Saltar si la fecha no está en cache
+		}
+		
+		idTiempoPedido, ok := tiempoCache.Get(fechaPedido)
+		if !ok {
+			idTiempoPedido = idTiempoVenta // Usar fecha de venta si pedido no está
+		}
+		
+		idTiempoEntrega, ok := tiempoCache.Get(fechaEntrega)
+		if !ok {
+			idTiempoEntrega = idTiempoVenta // Usar fecha de venta si entrega no está
+		}
 
 		// Generar precios con distribución Pareto
 		costo := generarVentaPareto(30, 150)
