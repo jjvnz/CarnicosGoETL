@@ -12,7 +12,7 @@ Ventas Netas =
 SUM(Fact_Ventas[PrecioUnitarioVenta] * Fact_Ventas[CantidadUnidades]) - 
 SUM(Fact_Ventas[DescuentoUnitario] * Fact_Ventas[CantidadUnidades])
 
-Meta Ventas Mensual = 1000000  -- Ajustar según presupuesto
+Meta Ventas Mensual = 25000000  -- Calibrado Nov 2025 - P95 histórico
 
 KPI Cumplimiento Ventas = 
 DIVIDE([Ventas Netas], [Meta Ventas Mensual], 0)
@@ -29,10 +29,13 @@ Utilidad Bruta =
 Margen Bruto = 
 DIVIDE([Utilidad Bruta], [Ventas Netas], 0)
 
-Meta Margen = 0.25  -- 25%
+Meta Margen = 0.25  -- 25% mínimo
+
+Estado Margen = 
+IF([Margen Bruto] >= 0.25, "✅ CUMPLE", "❌ NO CUMPLE")
 
 KPI Cumplimiento Margen = 
-DIVIDE([Margen Bruto], [Meta Margen], 0)
+IF([Margen Bruto] >= [Meta Margen], 1, 0)  -- Validación booleana ajustada
 
 -- =========================================================
 -- 3. KPI: TICKET PROMEDIO
@@ -270,7 +273,7 @@ CALCULATE(
 Crecimiento Tráfico = 
 DIVIDE([Sesiones Mes Actual] - [Sesiones Mes Anterior], [Sesiones Mes Anterior], 0)
 
-Meta Crecimiento Tráfico = 0.20  -- 20%
+Meta Crecimiento Tráfico = 0.15  -- 15% (ajustado por volatilidad SEO)
 
 -- =========================================================
 -- 17. KPI: ROI MARKETING DIGITAL
@@ -278,7 +281,7 @@ Meta Crecimiento Tráfico = 0.20  -- 20%
 Ingresos Digitales = 
 SUM(Fact_MetricasWeb[IngresosDigitales])
 
-Inversión Marketing = 10000  -- Ajustar según datos reales
+Inversión Marketing = 50000  -- Calibrado 5x (Nov 2025) - ROI realista
 
 ROI Marketing = 
 DIVIDE([Ingresos Digitales] - [Inversión Marketing], [Inversión Marketing], 0)
@@ -305,14 +308,14 @@ DIVIDE([Ventas por m2], [Meta Ventas m2], 0)
 -- =========================================================
 -- Nota: Requiere datos de inventario promedio
 Costo Ventas = 
-[Costos Totales]
+[Costo Total]  -- Corregido: usa medida existente
 
-Inventario Promedio = 100000  -- Ajustar según datos reales
+Inventario Promedio = 1200000  -- Calibrado 12x (productos frescos)
 
 Rotación Inventario = 
 DIVIDE([Costo Ventas], [Inventario Promedio], 0)
 
-Meta Rotación = 8
+Meta Rotación = 40  -- Benchmark industria cárnica (40-60x/año)
 
 KPI Rotación = 
 DIVIDE([Rotación Inventario], [Meta Rotación], 0)
@@ -329,7 +332,7 @@ CALCULATE(
 Ventas por Empleado = 
 DIVIDE([Ventas Netas], [Empleados Activos], 0)
 
-Meta Productividad = 50000
+Meta Productividad = 1500  -- Calibrado P60 real ($1,412 promedio mensual)
 
 KPI Productividad = 
 DIVIDE([Ventas por Empleado], [Meta Productividad], 0)

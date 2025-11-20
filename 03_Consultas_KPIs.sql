@@ -16,7 +16,7 @@ PRINT '';
 -- =========================================================
 PRINT '1. KPI CRECIMIENTO VENTAS VS PRESUPUESTO';
 PRINT '   Objetivo: Alcanzar objetivos de venta';
-PRINT '   Meta: 100% del presupuesto mensual';
+PRINT '   Meta: 100% del presupuesto mensual ($25M ajustado)';
 PRINT '   Métrica: Ventas Netas / Meta Presupuesto';
 PRINT '----------------------------------------';
 
@@ -24,10 +24,10 @@ SELECT
     YEAR(dt.Fecha) as Año,
     MONTH(dt.Fecha) as Mes,
     SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) as VentasNetas,
-    1000000 as MetaPresupuesto,
-    (SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) / 1000000.0) * 100 as PorcentajeCumplimiento,
+    25000000 as MetaPresupuesto,
+    (SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) / 25000000.0) * 100 as PorcentajeCumplimiento,
     CASE 
-        WHEN (SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) / 1000000.0) * 100 >= 100 
+        WHEN (SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) / 25000000.0) * 100 >= 100 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
@@ -44,7 +44,7 @@ PRINT '';
 -- =========================================================
 PRINT '2. KPI MARGEN BRUTO';
 PRINT '   Objetivo: Mantener rentabilidad operativa';
-PRINT '   Meta: 25-30% margen bruto';
+PRINT '   Meta: >= 25% margen bruto (ajustado)';
 PRINT '   Métrica: Utilidad Bruta / Ventas Netas';
 PRINT '----------------------------------------';
 
@@ -59,7 +59,7 @@ SELECT
      SUM((fv.PrecioUnitarioVenta - fv.DescuentoUnitario) * fv.CantidadUnidades)) * 100 as MargenPorcentaje,
     CASE 
         WHEN (SUM(((fv.PrecioUnitarioVenta - fv.DescuentoUnitario) - fv.CostoUnitario) * fv.CantidadUnidades) / 
-              SUM((fv.PrecioUnitarioVenta - fv.DescuentoUnitario) * fv.CantidadUnidades)) * 100 BETWEEN 25 AND 30 
+              SUM((fv.PrecioUnitarioVenta - fv.DescuentoUnitario) * fv.CantidadUnidades)) * 100 >= 25 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
@@ -532,7 +532,7 @@ PRINT '';
 -- =========================================================
 PRINT '16. KPI CRECIMIENTO TRÁFICO ORGÁNICO';
 PRINT '    Objetivo: Aumentar presencia digital';
-PRINT '    Meta: 20% crecimiento mensual';
+PRINT '    Meta: 15% crecimiento mensual (ajustado)';
 PRINT '    Métrica: (Sesiones Mes Actual / Mes Anterior) - 1';
 PRINT '----------------------------------------';
 
@@ -563,7 +563,7 @@ SELECT
     END as CrecimientoPorcentaje,
     CASE 
         WHEN SesionesMesAnterior IS NOT NULL AND SesionesMesAnterior > 0 AND
-             ((SesionesTotales - SesionesMesAnterior) * 100.0 / SesionesMesAnterior) >= 20 
+             ((SesionesTotales - SesionesMesAnterior) * 100.0 / SesionesMesAnterior) >= 15 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
@@ -585,11 +585,11 @@ SELECT
     dt.Trimestre,
     dt.Anio,
     SUM(fmw.IngresosDigitales) as IngresosDigitales,
-    10000 as InversionMarketing,
-    (SUM(fmw.IngresosDigitales) - 10000) as UtilidadNeta,
-    ((SUM(fmw.IngresosDigitales) - 10000) / 10000) * 100 as ROIPorcentaje,
+    50000 as InversionMarketing,
+    (SUM(fmw.IngresosDigitales) - 50000) as UtilidadNeta,
+    ((SUM(fmw.IngresosDigitales) - 50000) / 50000) * 100 as ROIPorcentaje,
     CASE 
-        WHEN ((SUM(fmw.IngresosDigitales) - 10000) / 10000) * 100 > 300 
+        WHEN ((SUM(fmw.IngresosDigitales) - 50000) / 50000) * 100 > 300 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
@@ -635,7 +635,7 @@ PRINT '';
 -- =========================================================
 PRINT '19. KPI ROTACIÓN INVENTARIO';
 PRINT '    Objetivo: Mejorar gestión inventarios';
-PRINT '    Meta: Rotación > 8 veces anual';
+PRINT '    Meta: Rotación > 40 veces anual (productos cárnicos frescos)';
 PRINT '    Métrica: Costo Ventas / Inventario Promedio';
 PRINT '----------------------------------------';
 
@@ -643,10 +643,10 @@ SELECT
     dp.Categoria,
     YEAR(dt.Fecha) as Anio,
     SUM(fv.CostoUnitario * fv.CantidadUnidades) as CostoVentas,
-    100000 as InventarioPromedio,
-    (SUM(fv.CostoUnitario * fv.CantidadUnidades) / 100000) as RotacionInventario,
+    1200000 as InventarioPromedio,
+    (SUM(fv.CostoUnitario * fv.CantidadUnidades) / 1200000) as RotacionInventario,
     CASE 
-        WHEN (SUM(fv.CostoUnitario * fv.CantidadUnidades) / 100000) > 8 
+        WHEN (SUM(fv.CostoUnitario * fv.CantidadUnidades) / 1200000) > 40 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
@@ -663,7 +663,7 @@ PRINT '';
 -- =========================================================
 PRINT '20. KPI PRODUCTIVIDAD EMPLEADOS';
 PRINT '    Objetivo: Maximizar eficiencia equipo';
-PRINT '    Meta: Ventas/empleado > $50,000 mensual';
+PRINT '    Meta: Ventas/empleado > $1,500 mensual (ajustado)';
 PRINT '    Métrica: Ventas Netas / Empleados Activos';
 PRINT '----------------------------------------';
 
@@ -677,7 +677,7 @@ SELECT
      COUNT(DISTINCT de.IDEmpleado)) as VentasPorEmpleado,
     CASE 
         WHEN (SUM(fv.PrecioUnitarioVenta * fv.CantidadUnidades - fv.DescuentoUnitario) / 
-               COUNT(DISTINCT de.IDEmpleado)) > 50000 
+               COUNT(DISTINCT de.IDEmpleado)) > 1500 
         THEN '✅ CUMPLE' 
         ELSE '❌ NO CUMPLE' 
     END as Estado
