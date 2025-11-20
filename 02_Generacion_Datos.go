@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-faker/faker/v4"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/go-faker/faker/v4"
 	"github.com/joho/godotenv"
 )
 
@@ -118,6 +118,33 @@ func insertBatchTx(ctx context.Context, tx *sql.Tx, table string, columns []stri
 	return err
 }
 
+// ================== FUNCIÓN DE LIMPIEZA ==================
+func cleanupTables(ctx context.Context, db *sql.DB) {
+	tables := []string{
+		"Fact_MetricasWeb",
+		"Fact_SatisfaccionCliente",
+		"Fact_Finanzas",
+		"Fact_Ventas",
+		"Dim_Empleado",
+		"Dim_EstadoPedido",
+		"Dim_CanalVenta",
+		"Dim_Tiempo",
+		"Dim_Sucursal",
+		"Dim_Cliente",
+		"Dim_Producto",
+	}
+
+	for _, table := range tables {
+		_, err := db.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s", table))
+		if err != nil {
+			log.Printf("⚠️  Error limpiando %s: %v", table, err)
+		} else {
+			log.Printf("✔ %s limpiada", table)
+		}
+	}
+	log.Println("✅ Limpieza completada")
+}
+
 // ================== MAIN ==================
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -132,7 +159,7 @@ func main() {
 	password := mustEnv("AZURE_SQL_PASSWORD")
 	database := mustEnv("AZURE_SQL_DATABASE")
 
-	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=disable",
+	connString := fmt.Sprintf("server=%s;port=%s;user id=%s;password=%s;database=%s;encrypt=true",
 		server, port, user, password, database)
 
 	db, err := sql.Open("sqlserver", connString)
@@ -148,6 +175,10 @@ func main() {
 	log.Println("✅ Conectado a Azure SQL Database")
 	log.Printf("📊 Configuración: %d ventas, %d productos, %d clientes\n",
 		config.VentasRecords, config.DimProductos, config.DimClientes)
+
+	// ========== LIMPIAR TABLAS EXISTENTES ==========
+	log.Println("\n🧹 Limpiando tablas existentes...")
+	cleanupTables(ctx, db)
 
 	// ========== FASE 1: DIMENSIONES INDEPENDIENTES ==========
 	log.Println("\n🔷 FASE 1: Poblando dimensiones independientes...")
@@ -312,6 +343,7 @@ func populateDimProductos(ctx context.Context, db *sql.DB) []int {
 		activo := rand.Float64() < 0.8
 
 		rows = append(rows, []interface{}{
+			i + 1, // IDProducto
 			fmt.Sprintf("SKU-%06d", i+1),
 			fmt.Sprintf("Producto %s %d", categorias[i%len(categorias)], i+1),
 			categorias[i%len(categorias)], // Distribución equitativa
@@ -324,7 +356,7 @@ func populateDimProductos(ctx context.Context, db *sql.DB) []int {
 
 		if len(rows) == config.BatchSize || i == config.DimProductos-1 {
 			if err := insertBatchTx(ctx, tx, "Dim_Producto", []string{
-				"SKU", "NombreProducto", "Categoria", "Subcategoria", "Marca", "LineaProducto", "Activo",
+				"IDProducto", "SKU", "NombreProducto", "Categoria", "Subcategoria", "Marca", "LineaProducto", "Activo",
 			}, rows); err != nil {
 				log.Fatalf("❌ Error insertando producto: %v", err)
 			}
@@ -366,6 +398,7 @@ func populateDimClientes(ctx context.Context, db *sql.DB) []int {
 		}
 
 		rows = append(rows, []interface{}{
+			i + 1, // IDCliente
 			fmt.Sprintf("CLI-%06d", i+1),
 			faker.Name(),
 			tipos[rand.Intn(len(tipos))],
@@ -379,7 +412,7 @@ func populateDimClientes(ctx context.Context, db *sql.DB) []int {
 
 		if len(rows) == config.BatchSize || i == config.DimClientes-1 {
 			if err := insertBatchTx(ctx, tx, "Dim_Cliente", []string{
-				"CodigoCliente", "NombreCliente", "TipoCliente", "Segmento", "Ciudad",
+				"IDCliente", "CodigoCliente", "NombreCliente", "TipoCliente", "Segmento", "Ciudad",
 				"Region", "FechaRegistro", "ClienteActivo",
 			}, rows); err != nil {
 				log.Fatalf("❌ Error insertando cliente: %v", err)
@@ -413,6 +446,7 @@ func populateDimSucursales(ctx context.Context, db *sql.DB) []int {
 		ciudad := ciudades[i%len(ciudades)] // Distribución equitativa
 
 		rows = append(rows, []interface{}{
+			i + 1, // IDSucursal
 			fmt.Sprintf("SUC-%03d", i+1),
 			fmt.Sprintf("Sucursal %s %d", ciudad, (i/len(ciudades))+1),
 			fmt.Sprintf("Calle %d #%d-%d", rand.Intn(100)+1, rand.Intn(50)+1, rand.Intn(100)+1),
@@ -425,7 +459,7 @@ func populateDimSucursales(ctx context.Context, db *sql.DB) []int {
 	}
 
 	if err := insertBatchTx(ctx, tx, "Dim_Sucursal", []string{
-		"CodigoSucursal", "NombreSucursal", "Direccion", "Ciudad", "Region",
+		"IDSucursal", "CodigoSucursal", "NombreSucursal", "Direccion", "Ciudad", "Region",
 		"TipoSucursal", "SucursalActiva",
 	}, rows); err != nil {
 		log.Fatalf("❌ Error insertando sucursal: %v", err)
@@ -453,9 +487,8 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 	rows := [][]interface{}{}
 
 	for i := 0; i < config.DimEmpleados; i++ {
-		// ✅ ESTRUCTURA CORREGIDA - Solo campos que existen en el modelo normalizado
 		rows = append(rows, []interface{}{
-			// IDEmpleado se auto-genera (IDENTITY), NO se incluye aquí
+			i + 1, // IDEmpleado
 			fmt.Sprintf("EMP-%05d", i+1),
 			faker.Name(),
 			cargos[rand.Intn(len(cargos))],
@@ -464,16 +497,16 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 			time.Now().AddDate(-rand.Intn(10), -rand.Intn(12), -rand.Intn(28)),
 			rand.Float64() < 0.92, // EmpleadoActivo
 		})
+		ids = append(ids, i+1)
 
 		if len(rows) == config.BatchSize || i == config.DimEmpleados-1 {
-			// ✅ COLUMNAS ACTUALIZADAS al modelo normalizado (sin IDEmpleado)
 			if err := insertBatchTx(ctx, tx, "Dim_Empleado", []string{
-				// "IDEmpleado" se omite porque es IDENTITY
+				"IDEmpleado",
 				"CodigoEmpleado",
 				"NombreEmpleado",
 				"Cargo",
 				"Departamento",
-				"IDSucursal", // ✅ SOLO FK, no campos duplicados
+				"IDSucursal",
 				"FechaContratacion",
 				"EmpleadoActivo",
 			}, rows); err != nil {
@@ -484,21 +517,7 @@ func populateDimEmpleados(ctx context.Context, db *sql.DB, sucursalIDs []int) []
 	}
 
 	tx.Commit()
-	
-	// Recuperar IDs generados
-	rows2, err := db.QueryContext(ctx, "SELECT IDEmpleado FROM Dim_Empleado ORDER BY IDEmpleado")
-	if err != nil {
-		log.Fatalf("❌ Error recuperando IDs de empleados: %v", err)
-	}
-	defer rows2.Close()
-	
-	for rows2.Next() {
-		var id int
-		rows2.Scan(&id)
-		ids = append(ids, id)
-	}
-
-	log.Printf("✔ Dim_Empleado completada (%d registros) - ESTRUCTURA NORMALIZADA\n", len(ids))
+	log.Printf("✔ Dim_Empleado completada (%d registros)\n", config.DimEmpleados)
 	return ids
 }
 
@@ -521,7 +540,7 @@ func populateDimCanales(ctx context.Context, db *sql.DB) []int {
 	ids := make([]int, len(canales))
 
 	for i, canal := range canales {
-		rows = append(rows, []interface{}{canal.codigo, canal.nombre, canal.tipo})
+		rows = append(rows, []interface{}{i + 1, canal.codigo, canal.nombre, canal.tipo})
 		ids[i] = i + 1
 	}
 
@@ -529,7 +548,7 @@ func populateDimCanales(ctx context.Context, db *sql.DB) []int {
 	defer tx.Rollback()
 
 	if err := insertBatchTx(ctx, tx, "Dim_CanalVenta", []string{
-		"CodigoCanal", "NombreCanal", "TipoCanal",
+		"IDCanal", "CodigoCanal", "NombreCanal", "TipoCanal",
 	}, rows); err != nil {
 		log.Fatalf("❌ Error insertando canales: %v", err)
 	}
@@ -560,7 +579,7 @@ func populateDimEstados(ctx context.Context, db *sql.DB) []int {
 	ids := make([]int, len(estados))
 
 	for i, estado := range estados {
-		rows = append(rows, []interface{}{estado.codigo, estado.desc, estado.final})
+		rows = append(rows, []interface{}{i + 1, estado.codigo, estado.desc, estado.final})
 		ids[i] = i + 1
 	}
 
@@ -568,7 +587,7 @@ func populateDimEstados(ctx context.Context, db *sql.DB) []int {
 	defer tx.Rollback()
 
 	if err := insertBatchTx(ctx, tx, "Dim_EstadoPedido", []string{
-		"CodigoEstado", "DescripcionEstado", "EsEstadoFinal",
+		"IDEstado", "CodigoEstado", "DescripcionEstado", "EsEstadoFinal",
 	}, rows); err != nil {
 		log.Fatalf("❌ Error insertando estados: %v", err)
 	}
@@ -584,15 +603,16 @@ func populateFactVentas(ctx context.Context, db *sql.DB, productoIDs, clienteIDs
 
 	log.Printf("💰 Iniciando carga de %d ventas...\n", config.VentasRecords)
 
+	start := time.Now().AddDate(-config.DimTiempoAnios, 0, 0)
+	rows := [][]interface{}{}
+	totalVentas := 0.0
+	commitEvery := 10000 // Commit cada 10,000 registros para evitar timeouts
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Fatalf("❌ Error iniciando transacción: %v", err)
 	}
 	defer tx.Rollback()
-
-	start := time.Now().AddDate(-config.DimTiempoAnios, 0, 0)
-	rows := [][]interface{}{}
-	totalVentas := 0.0
 
 	for i := 0; i < config.VentasRecords; i++ {
 		// Generar fechas coherentes
@@ -605,12 +625,12 @@ func populateFactVentas(ctx context.Context, db *sql.DB, productoIDs, clienteIDs
 		if !ok {
 			continue // Saltar si la fecha no está en cache
 		}
-		
+
 		idTiempoPedido, ok := tiempoCache.Get(fechaPedido)
 		if !ok {
 			idTiempoPedido = idTiempoVenta // Usar fecha de venta si pedido no está
 		}
-		
+
 		idTiempoEntrega, ok := tiempoCache.Get(fechaEntrega)
 		if !ok {
 			idTiempoEntrega = idTiempoVenta // Usar fecha de venta si entrega no está
@@ -648,12 +668,27 @@ func populateFactVentas(ctx context.Context, db *sql.DB, productoIDs, clienteIDs
 			rows = [][]interface{}{}
 		}
 
-		if (i+1)%100000 == 0 {
-			log.Printf("  ⏳ %d ventas insertadas (%.1f%%)...", i+1, float64(i+1)/float64(config.VentasRecords)*100)
+		// Commit periódico cada 10,000 registros
+		if (i+1)%commitEvery == 0 {
+			if err := tx.Commit(); err != nil {
+				log.Fatalf("❌ Error en commit: %v", err)
+			}
+			log.Printf("  ✓ Commit: %d ventas insertadas (%.1f%%)...", i+1, float64(i+1)/float64(config.VentasRecords)*100)
+
+			// Iniciar nueva transacción
+			tx, err = db.BeginTx(ctx, nil)
+			if err != nil {
+				log.Fatalf("❌ Error iniciando transacción: %v", err)
+			}
+		} else if (i+1)%100000 == 0 {
+			log.Printf("  ⏳ %d ventas procesadas (%.1f%%)...", i+1, float64(i+1)/float64(config.VentasRecords)*100)
 		}
 	}
 
-	tx.Commit()
+	// Commit final
+	if err := tx.Commit(); err != nil {
+		log.Fatalf("❌ Error en commit final: %v", err)
+	}
 	log.Printf("✔ Fact_Ventas completado - Total facturado: $%.2f M\n", totalVentas/1000000)
 }
 
